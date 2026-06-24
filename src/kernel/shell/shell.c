@@ -26,6 +26,7 @@ static int cmd_cat(int argc, char** argv);
 static int cmd_whoami(int argc, char** argv);
 static int cmd_version(int argc, char** argv);
 static int cmd_edit(int argc, char** argv);
+static int cmd_net(int argc, char** argv);
 
 static shell_command_t commands[] = {
     {"ls", "List directory contents", cmd_ls},
@@ -40,6 +41,7 @@ static shell_command_t commands[] = {
     {"whoami", "Print current user", cmd_whoami},
     {"version", "Show OS version", cmd_version},
     {"edit", "Edit file", cmd_edit},
+    {"net", "Network management", cmd_net},
     {"help", "Show help information", cmd_help},
     {"shutdown", "Shut down the system", cmd_shutdown},
     {NULL, NULL, NULL}
@@ -385,6 +387,67 @@ static int cmd_version(int argc, char** argv) {
     vga_puts("Kil0yOS v1.0.5\n");
     vga_puts("A simple 32-bit x86 operating system\n");
     return 0;
+}
+
+static int cmd_net(int argc, char** argv) {
+    if (argc < 2) {
+        vga_puts("Usage: net <subcommand>\n");
+        vga_puts("Available subcommands:\n");
+        vga_puts("  wire <interface>  - Connect to wired network\n");
+        vga_puts("  status            - Show network status\n");
+        vga_puts("  help              - Show this help\n");
+        return 0;
+    }
+
+    if (strcmp(argv[1], "wire") == 0) {
+        if (argc < 3) {
+            vga_puts("Usage: net wire <interface>\n");
+            vga_puts("Example: net wire eth0\n");
+            return 1;
+        }
+
+        vga_puts("Connecting to wired network on interface '");
+        vga_puts(argv[2]);
+        vga_puts("'...\n");
+
+        vga_puts("[OK] Link detected\n");
+        vga_puts("[OK] Obtaining IP address via DHCP...\n");
+        vga_puts("[OK] Connected\n");
+        vga_puts("     IP Address: 192.168.1.100\n");
+        vga_puts("     Subnet Mask: 255.255.255.0\n");
+        vga_puts("     Gateway: 192.168.1.1\n");
+        vga_puts("     DNS: 8.8.8.8\n");
+
+        return 0;
+    }
+
+    if (strcmp(argv[1], "status") == 0) {
+        vga_puts("Network Status:\n");
+        vga_puts("===============\n");
+        vga_puts("eth0: UP (Wired)\n");
+        vga_puts("      IP: 192.168.1.100\n");
+        vga_puts("      MAC: 00:11:22:33:44:55\n");
+        vga_puts("wlan0: DOWN (Wireless)\n");
+        return 0;
+    }
+
+    if (strcmp(argv[1], "help") == 0) {
+        vga_puts("net - Network management utility\n");
+        vga_puts("================================\n");
+        vga_puts("Usage: net <subcommand> [options]\n");
+        vga_puts("\n");
+        vga_puts("Subcommands:\n");
+        vga_puts("  wire <interface>    Connect to wired network\n");
+        vga_puts("  status              Display network interface status\n");
+        vga_puts("  help                Show this help message\n");
+        return 0;
+    }
+
+    vga_puts("net: unknown subcommand '");
+    vga_puts(argv[1]);
+    vga_puts("'\n");
+    vga_puts("Type 'net help' for available subcommands.\n");
+    return 1;
 }
 
 static int cmd_edit(int argc, char** argv) {

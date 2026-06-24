@@ -126,3 +126,15 @@ pci_device_t* pci_find_class(uint8_t class_code, uint8_t subclass_code) {
     }
     return NULL;
 }
+
+void pci_get_network_devices(pci_device_t** devices, int* count) {
+    *count = 0;
+    pci_device_t* dev = pci_devices;
+    while (dev != NULL) {
+        if (dev->class_code == PCI_CLASS_NETWORK) {
+            devices[*count] = dev;
+            (*count)++;
+        }
+        dev = dev->next;
+    }
+}

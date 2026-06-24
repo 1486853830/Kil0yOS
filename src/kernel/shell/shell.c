@@ -7,9 +7,11 @@
 #include "mm/memory.h"
 #include "core/interrupts.h"
 #include "drivers/power.h"
+#include "drivers/pci.h"
 #include "fs/edit.h"
 #include "net/net.h"
 #include "net/dhcp.h"
+#include "net/e1000.h"
 
 static char current_path[MAX_PATH_LENGTH];
 
@@ -397,9 +399,69 @@ static int cmd_net(int argc, char** argv) {
     if (argc < 2) {
         vga_puts("Usage: net <subcommand>\n");
         vga_puts("Available subcommands:\n");
-        vga_puts("  wire <interface>  - Connect to wired network via DHCP\n");
-        vga_puts("  status            - Show network status\n");
-        vga_puts("  help              - Show this help\n");
+        vga_puts("  chknic             - Check available network interfaces\n");
+        vga_puts("  wire <interface>   - Connect to wired network via DHCP\n");
+        vga_puts("  status             - Show network status\n");
+        vga_puts("  help               - Show this help\n");
+        return 0;
+    }
+
+    if (strcmp(argv[1], "chknic") == 0) {
+        vga_puts("Available Network Interfaces:\n");
+        vga_puts("============================\n");
+
+        pci_device_t* devices[16];
+        int count = 0;
+        pci_get_network_devices(devices, &count);
+
+        if (count == 0) {
+            vga_puts("No network devices found.\n");
+            return 0;
+        }
+
+        for (int i = 0; i < count; i++) {
+            pci_device_t* dev = devices[i];
+            vga_puts("eth");
+            char idx_buf[4];
+            itoa(i, idx_buf, 10, sizeof(idx_buf));
+            vga_puts(idx_buf);
+            vga_puts(": ");
+
+            if (dev->vendor_id == E1000_VENDOR_ID && dev->device_id == E1000_DEVICE_ID) {
+                vga_puts("Intel PRO/1000 MT");
+            } else if (dev->vendor_id == RTL8139_VENDOR_ID) {
+                vga_puts("Realtek RTL8139");
+            } else {
+                vga_puts("Unknown (");
+                char buf[8];
+                utoa(dev->vendor_id, buf, 16, sizeof(buf));
+                vga_puts(buf);
+                vga_puts(":");
+                utoa(dev->device_id, buf, 16, sizeof(buf));
+                vga_puts(buf);
+                vga_puts(")");
+            }
+
+            vga_puts(" [");
+            vga_puts(net_interface.initialized ? "active" : "inactive");
+            vga_puts("]\n");
+
+            vga_puts("       Bus:Dev:Func = ");
+            char bus_buf[8], dev_buf[8], func_buf[8];
+            itoa(dev->bus, bus_buf, 10, sizeof(bus_buf));
+            itoa(dev->device, dev_buf, 10, sizeof(dev_buf));
+            itoa(dev->function, func_buf, 10, sizeof(func_buf));
+            vga_puts(bus_buf);
+            vga_puts(":");
+            vga_puts(dev_buf);
+            vga_puts(":");
+            vga_puts(func_buf);
+            vga_puts(", IRQ: ");
+            itoa(dev->irq, bus_buf, 10, sizeof(bus_buf));
+            vga_puts(bus_buf);
+            vga_puts("\n");
+        }
+
         return 0;
     }
 

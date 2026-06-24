@@ -9,9 +9,11 @@
 - PS/2 keyboard input handling
 - Interrupt handling with PIC and ISRs
 - GDT and IDT setup
-- In-memory filesystem with directories and files
+- FAT32-like filesystem with directories and files
+- Persistent filesystem with ACPI shutdown support
 - Command-line shell with built-in commands
-- File read/write operations
+- File read/write/edit operations
+- Round-robin task scheduler
 
 ## Prerequisites
 
@@ -38,40 +40,47 @@ make run
 - ls - List directory contents
 - cd - Change directory
 - pwd - Print working directory
-- mkdir - Create directory
+- mkdir - Create directory (supports path like `mkdir subdir/file`)
 - rm - Remove file or directory
 - touch - Create empty file
 - cat - Display file contents
+- edit - Edit file contents
 - clear - Clear screen
 - echo - Print text (supports redirect to file with >)
 - whoami - Print current user
 - version - Show OS version
 - help - Show help information
-- shutdown - Shut down the system
+- shutdown - Shut down the system (ACPI S5)
+- sleep - Halt CPU until interrupt
+- ps - List running processes
+- kill - Terminate a process
 
 ## Project Structure
 
 ```
 src/
-  boot/          - Bootloader (Assembly)
-  kernel/        - Kernel source code (C)
-    main.c       - Kernel entry point
-    gdt.c        - Global Descriptor Table
-    idt.c        - Interrupt Descriptor Table
-    isr.c        - Interrupt Service Routines
-    interrupts.c - PIC initialization
-    memory.c     - Heap memory management
-    vga.c        - VGA display driver
-    keyboard.c   - Keyboard driver
-    string.c     - String utilities
-    stdlib.c     - Standard library functions
-    fs.c         - Filesystem implementation
-    shell.c      - Command shell
+  boot/               - Bootloader (Assembly)
+  kernel/
+    core/             - Kernel core (main.c, gdt.c, idt.c, isr.c, interrupts.c)
+    drivers/          - Device drivers
+      disk.c          - ATA disk driver
+      keyboard.c      - PS/2 keyboard driver
+      pit.c           - Programmable Interval Timer
+      power.c         - ACPI power management
+      vga.c           - VGA display driver
+    fs/               - Filesystem
+      fs.c            - FAT32-like filesystem
+      edit.c          - Text editor
+    lib/              - Standard library (string.c, stdlib.c)
+    mm/               - Memory management (memory.c)
+    sched/            - Task scheduler
+    shell/            - Command-line shell
+    timer/            - Timer management
 
-include/         - Header files
-Makefile         - Build configuration
-linker.ld        - Linker script
-grub.cfg         - GRUB configuration
+include/              - Header files
+Makefile              - Build configuration
+linker.ld             - Linker script
+grub.cfg              - GRUB configuration
 ```
 
 ## License

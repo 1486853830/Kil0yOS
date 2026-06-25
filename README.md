@@ -8,6 +8,8 @@
 
 - Memory management with heap allocation
 - VGA text mode display
+- **TempleOS-style tiling GUI desktop** (320x200 VGA mode 13h)
+- **Interactive graphical shell** with keyboard-driven menu navigation
 - PS/2 keyboard input handling
 - Interrupt handling with PIC and ISRs
 - GDT and IDT setup
@@ -55,6 +57,22 @@ make run
 - shutdown - Shut down the system (ACPI S5)
 - net - Network management (wire, chknic, status)
 - ping - Send ICMP echo requests
+
+## GUI Desktop
+
+Run the `gui` command to enter the graphical tiling desktop. Navigate the left menu with **arrow keys** and press **Enter** to switch panels.
+
+### Interactive Shell
+
+The **Shell** panel provides a fully interactive graphical shell supporting `ls`, `cd`, `mkdir`, `touch`, `pwd`, `shutdown`, and more.
+
+![Shell GUI](assets/shellgui.png)
+
+### CAT Viewer
+
+Because every OS needs a cat.
+
+![=^._.^=](assets/mew.png)
 
 ## Project Structure
 

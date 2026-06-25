@@ -1,6 +1,34 @@
 # Changelog
  All notable changes to this project will be documented in this file.
  The format follows Keep a Changelog and this project adheres to Semantic Versioning.
+## [1.2.0] - 2026-06-25
+ This release completely redesigns the GUI desktop into a TempleOS-style tiling interface with an interactive graphical shell.
+## Added
+ ### Tiling GUI Desktop
+  - TempleOS-style tiling desktop layout with header bar, left menu panel, right content area, and footer
+  - Keyboard-driven menu navigation using arrow keys with yellow highlight selection
+  - Enter key to switch between function panels (Shell, Files, Edit, Viewer, CATs)
+  - 8x8 bitmap font rendering support for GUI text display
+ ### Interactive Graphical Shell
+  - Fully interactive shell embedded in the right content panel
+  - Command input with backspace support and cursor tracking
+  - Supported commands: `ls`, `cd`, `mkdir`, `touch`, `pwd`, `help`, `clear`, `version`, `whoami`, `shutdown`
+  - Directory listings with color-coded entries (directories in light blue, files in white)
+  - Auto-scroll with screen clearing when output exceeds panel bounds
+ ### New Assets
+  - `assets/shellgui.png`: screenshot of the interactive shell panel
+  - `assets/mew.png`: screenshot of the CAT Viewer panel
+## Changed
+  - Redesigned `gui` command: replaced Windows 98 style window with pure tiling layout
+  - Updated version string to v1.2.0 across boot message, GUI header, and shell commands
+  - Updated README with GUI Desktop section and screenshots
+## File Changes
+  - 5 files changed, 470 insertions(+), 13 deletions(-)
+  - `include/gfx/88front.h`: new 8x8 bitmap font data
+  - `include/drivers/vga.h`: added font and rectangle drawing declarations
+  - `src/kernel/drivers/vga.c`: added `vga_draw_rect()`, `vga_draw_string()`, `vga_draw_char()`
+  - `src/kernel/shell/shell.c`: complete GUI rewrite with tiling layout, menu nav, and interactive shell
+  - `src/kernel/core/main.c`: updated boot version string
 ## [1.1.0] - 2026-06-25
  This release introduces graphical display support to Kil0yOS, including a VGA graphics mode and a simple desktop environment.
 ## Added

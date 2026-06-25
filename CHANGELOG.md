@@ -1,6 +1,27 @@
 # Changelog
  All notable changes to this project will be documented in this file.
  The format follows Keep a Changelog and this project adheres to Semantic Versioning.
+## [1.1.0] - 2026-06-25
+ This release introduces graphical display support to Kil0yOS, including a VGA graphics mode and a simple desktop environment.
+## Added
+ ### Graphical Display System
+  - VGA Mode 13h (320x200, 256 colors) support via direct hardware register programming
+  - `vga_set_mode_13h()`: switch from text mode to graphics mode
+  - `vga_set_text_mode()`: restore standard 80x25 text mode
+  - `vga_plot_pixel()`: draw individual pixels in graphics mode
+  - `vga_fill_rect()`: draw filled rectangles for GUI rendering
+  - `vga_draw_color_bars()`: display standard color bar test pattern
+ ### New Shell Commands
+  - `gfx`: switch to graphical mode and display a standard color bar test pattern, press `q` to return
+  - `gui`: launch a simple Windows 98 style desktop with a cyan background and gray taskbar, press `q` to return
+## Changed
+  - Updated version string from v1.0.5 to v1.1.0 in kernel boot message and shell `version` command
+## File Changes
+  - 4 files modified, 190 insertions, 2 deletions
+  - include/drivers/vga.h: added graphics mode declarations and constants
+  - src/kernel/drivers/vga.c: implemented VGA graphics mode, pixel drawing, rectangle fill, and color bars
+  - src/kernel/shell/shell.c: added `gfx` and `gui` commands, updated version string
+  - src/kernel/core/main.c: updated boot version string
 ## [1.0.5] - 2026-06-25
  This is a critical maintenance and feature enhancement release focused on fixing core network subsystem issues and improving overall system stability and reliability.
  All users relying on network functionality are strongly recommended to upgrade.

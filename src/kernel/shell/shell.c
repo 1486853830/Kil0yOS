@@ -32,6 +32,8 @@ static int cmd_version(int argc, char** argv);
 static int cmd_edit(int argc, char** argv);
 static int cmd_net(int argc, char** argv);
 static int cmd_ping(int argc, char** argv);
+static int cmd_gfx(int argc, char** argv);
+static int cmd_gui(int argc, char** argv);
 
 static shell_command_t commands[] = {
     {"ls", "List directory contents", cmd_ls},
@@ -48,6 +50,8 @@ static shell_command_t commands[] = {
     {"edit", "Edit file", cmd_edit},
     {"net", "Network management", cmd_net},
     {"ping", "Send ICMP echo requests", cmd_ping},
+    {"gfx", "Graphical display test", cmd_gfx},
+    {"gui", "Launch desktop GUI", cmd_gui},
     {"help", "Show help information", cmd_help},
     {"shutdown", "Shut down the system", cmd_shutdown},
     {NULL, NULL, NULL}
@@ -390,7 +394,7 @@ static int cmd_whoami(int argc, char** argv) {
 }
 
 static int cmd_version(int argc, char** argv) {
-    vga_puts("Kil0yOS v1.0.5\n");
+    vga_puts("Kil0yOS v1.1.0\n");
     vga_puts("A simple 32-bit x86 operating system\n");
     return 0;
 }
@@ -685,8 +689,49 @@ static int cmd_edit(int argc, char** argv) {
         vga_puts("edit: missing file operand\n");
         return 1;
     }
-    
+
     edit_file(argv[1]);
+    return 0;
+}
+
+static int cmd_gfx(int argc, char** argv) {
+    vga_puts("Switching to graphical mode...\n");
+
+    vga_set_mode_13h();
+    vga_draw_color_bars();
+
+    while (keyboard_getc() != 'q') {
+        __asm__ volatile("nop");
+    }
+
+    vga_set_text_mode();
+    vga_puts("Returned to text mode.\n");
+    return 0;
+}
+
+static int cmd_gui(int argc, char** argv) {
+    vga_puts("Launching desktop...\n");
+
+    vga_set_mode_13h();
+
+    vga_fill_rect(0, 0, GFX_WIDTH, GFX_HEIGHT, 0x03);
+
+    int taskbar_h = 20;
+    int taskbar_y = GFX_HEIGHT - taskbar_h;
+    vga_fill_rect(0, taskbar_y, GFX_WIDTH, taskbar_h, 0x07);
+
+    vga_fill_rect(2, taskbar_y + 2, 40, taskbar_h - 4, 0x07);
+    vga_fill_rect(2, taskbar_y + 2, 40, 1, 0x0F);
+    vga_fill_rect(2, taskbar_y + 2, 1, taskbar_h - 4, 0x0F);
+    vga_fill_rect(2, taskbar_y + taskbar_h - 3, 40, 1, 0x08);
+    vga_fill_rect(41, taskbar_y + 2, 1, taskbar_h - 4, 0x08);
+
+    while (keyboard_getc() != 'q') {
+        __asm__ volatile("nop");
+    }
+
+    vga_set_text_mode();
+    vga_puts("Returned to text mode.\n");
     return 0;
 }
 

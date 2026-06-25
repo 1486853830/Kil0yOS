@@ -17,7 +17,7 @@ void kernel_main() {
     vga_init();
     
     vga_set_color(vga_entry_color(COLOR_LIGHT_CYAN, COLOR_BLACK));
-    vga_puts("Kil0yOS v1.0.5\n");
+    vga_puts("Kil0yOS v1.1.0\n");
     vga_puts("==================================\n");
     vga_set_color(vga_entry_color(COLOR_WHITE, COLOR_BLACK));
     

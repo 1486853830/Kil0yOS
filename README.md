@@ -1,6 +1,6 @@
-# <center> Kil0yOS
+<p align="center"># Kil0yOS</p>
 
-![LOGO](./assets/banner.png)
+![kil0yOSnotCtOS](./assets/banner.svg)
 
 ## Features
 

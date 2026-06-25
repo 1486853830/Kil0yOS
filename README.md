@@ -51,9 +51,8 @@ make run
 - version - Show OS version
 - help - Show help information
 - shutdown - Shut down the system (ACPI S5)
-- sleep - Halt CPU until interrupt
-- ps - List running processes
-- kill - Terminate a process
+- net - Network management (wire, chknic, status)
+- ping - Send ICMP echo requests
 
 ## Project Structure
 

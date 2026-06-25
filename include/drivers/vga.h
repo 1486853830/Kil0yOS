@@ -55,5 +55,9 @@ void vga_set_text_mode();
 void vga_plot_pixel(int x, int y, uint8_t color);
 void vga_draw_color_bars();
 void vga_fill_rect(int x, int y, int w, int h, uint8_t color);
+void vga_draw_rect(int x, int y, int w, int h, uint8_t color);
+void vga_draw_char(int x, int y, char c, uint8_t color);
+void vga_draw_string(int x, int y, const char* str, uint8_t color);
+void vga_draw_window(int x, int y, int w, int h, const char* title);
 
 #endif

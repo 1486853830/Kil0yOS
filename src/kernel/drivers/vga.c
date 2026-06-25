@@ -1,5 +1,6 @@
 #include "drivers/vga.h"
 #include "drivers/io.h"
+#include "gfx/88front.h"
 
 uint16_t* vga_buffer;
 uint8_t* vga_gfx_buffer;
@@ -257,5 +258,71 @@ void vga_fill_rect(int x, int y, int w, int h, uint8_t color) {
         for (int col = x; col < x + w; col++) {
             vga_gfx_buffer[row * GFX_WIDTH + col] = color;
         }
+    }
+}
+
+void vga_draw_rect(int x, int y, int w, int h, uint8_t color) {
+    if (w <= 0 || h <= 0) return;
+    vga_fill_rect(x, y, w, 1, color);
+    vga_fill_rect(x, y + h - 1, w, 1, color);
+    vga_fill_rect(x, y, 1, h, color);
+    vga_fill_rect(x + w - 1, y, 1, h, color);
+}
+
+void vga_draw_char(int x, int y, char c, uint8_t color) {
+    if (x < 0 || x + 8 > GFX_WIDTH || y < 0 || y + 8 > GFX_HEIGHT) return;
+    
+    if (c < 0x20 || c > 0x7E) c = 0x20;
+    int char_idx = c - 0x20;
+    
+    for (int row = 0; row < 8; row++) {
+        uint8_t byte = matrix_font[char_idx][row];
+        for (int col = 0; col < 8; col++) {
+            if (byte & (0x80 >> col)) {
+                vga_gfx_buffer[(y + row) * GFX_WIDTH + (x + col)] = color;
+            }
+        }
+    }
+}
+
+void vga_draw_string(int x, int y, const char* str, uint8_t color) {
+    int current_x = x;
+    while (*str) {
+        if (*str == '\n') {
+            current_x = x;
+            y += 6;
+        } else {
+            vga_draw_char(current_x, y, *str, color);
+            current_x += 6;
+        }
+        str++;
+    }
+}
+
+void vga_draw_window(int x, int y, int w, int h, const char* title) {
+    int title_h = 8;
+    int border = 1;
+    int inner_x = x + border;
+    int inner_y = y + border + title_h;
+    int inner_w = w - border * 2;
+    int inner_h = h - border * 2 - title_h;
+
+    if (inner_w < 0) inner_w = 0;
+    if (inner_h < 0) inner_h = 0;
+
+    /* black content background */
+    vga_fill_rect(inner_x, inner_y, inner_w, inner_h, 0x00);
+
+    /* blue title bar */
+    vga_fill_rect(inner_x, y + border, inner_w, title_h, 0x01);
+
+    /* yellow border */
+    vga_draw_rect(x, y, w, h, 0x0E);
+
+    /* title text in white */
+    if (title) {
+        int title_x = inner_x + 2;
+        int title_y = y + border + 1;
+        vga_draw_string(title_x, title_y, title, 0x0F);
     }
 }

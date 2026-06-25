@@ -395,7 +395,7 @@ static int cmd_whoami(int argc, char** argv) {
 }
 
 static int cmd_version(int argc, char** argv) {
-    vga_puts("Kil0yOS v1.1.2\n");
+    vga_puts("Kil0yOS v1.2.0\n");
     vga_puts("A simple 32-bit x86 operating system\n");
     return 0;
 }
@@ -710,29 +710,311 @@ static int cmd_gfx(int argc, char** argv) {
     return 0;
 }
 
+/* GUI Shell state */
+#define GUI_SHELL_BUF_SIZE 64
+static char gui_shell_buf[GUI_SHELL_BUF_SIZE];
+static int gui_shell_len = 0;
+static int gui_shell_x = 0;
+static int gui_shell_y = 0;
+static int gui_shell_input_x = 0;
+
+static void gui_shell_draw_prompt(void) {
+    vga_draw_string(gui_shell_x, gui_shell_y, "> ", 0x0F);
+}
+
+static void gui_shell_init(int left_w, int header_h) {
+    gui_shell_len = 0;
+    gui_shell_buf[0] = '\0';
+    gui_shell_x = left_w + 4;
+    gui_shell_y = header_h + 14;
+    gui_shell_input_x = gui_shell_x + 12;
+    gui_shell_draw_prompt();
+}
+
+static void gui_shell_check_scroll(int left_w, int header_h, int content_h) {
+    if (gui_shell_y > GFX_HEIGHT - 20) {
+        vga_fill_rect(left_w + 1, header_h + 1, GFX_WIDTH - left_w - 2, content_h - 2, 0x00);
+        gui_shell_y = header_h + 14;
+    }
+}
+
+static void gui_shell_execute(int left_w, int header_h, int content_h) {
+    gui_shell_buf[gui_shell_len] = '\0';
+    gui_shell_y += 10;
+
+    /* parse command and arguments */
+    char cmd_buf[GUI_SHELL_BUF_SIZE];
+    strncpy(cmd_buf, gui_shell_buf, GUI_SHELL_BUF_SIZE - 1);
+    cmd_buf[GUI_SHELL_BUF_SIZE - 1] = '\0';
+
+    char* argv[8];
+    int argc = 0;
+
+    char* token = strtok(cmd_buf, " \t");
+    while (token != NULL && argc < 8) {
+        argv[argc++] = token;
+        token = strtok(NULL, " \t");
+    }
+
+    if (argc == 0) {
+        /* empty command */
+    } else if (strcmp(argv[0], "help") == 0) {
+        vga_draw_string(gui_shell_x, gui_shell_y, "Commands:", 0x0E);
+        gui_shell_y += 10;
+        gui_shell_check_scroll(left_w, header_h, content_h);
+        vga_draw_string(gui_shell_x, gui_shell_y, " help ls cd", 0x0F);
+        gui_shell_y += 10;
+        gui_shell_check_scroll(left_w, header_h, content_h);
+        vga_draw_string(gui_shell_x, gui_shell_y, " mkdir touch pwd", 0x0F);
+        gui_shell_y += 10;
+        gui_shell_check_scroll(left_w, header_h, content_h);
+        vga_draw_string(gui_shell_x, gui_shell_y, " clear version", 0x0F);
+        gui_shell_y += 10;
+        gui_shell_check_scroll(left_w, header_h, content_h);
+        vga_draw_string(gui_shell_x, gui_shell_y, " whoami shutdown", 0x0F);
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "clear") == 0) {
+        vga_fill_rect(left_w + 1, header_h + 1, GFX_WIDTH - left_w - 2, content_h - 2, 0x00);
+        gui_shell_y = header_h + 14;
+    } else if (strcmp(argv[0], "version") == 0) {
+        vga_draw_string(gui_shell_x, gui_shell_y, "Kil0yOS v1.2.0", 0x0F);
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "whoami") == 0) {
+        vga_draw_string(gui_shell_x, gui_shell_y, "user", 0x0F);
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "pwd") == 0) {
+        vga_draw_string(gui_shell_x, gui_shell_y, current_path, 0x0F);
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "shutdown") == 0) {
+        vga_draw_string(gui_shell_x, gui_shell_y, "Saving filesystem...", 0x0F);
+        gui_shell_y += 10;
+        fs_save();
+        vga_draw_string(gui_shell_x, gui_shell_y, "Shutting down...", 0x0F);
+        gui_shell_y += 10;
+        power_shutdown();
+    } else if (strcmp(argv[0], "ls") == 0) {
+        fs_entry_t* dir = fs_current();
+        if (argc > 1) {
+            dir = fs_resolve_path(argv[1]);
+        }
+        if (dir == NULL) {
+            vga_draw_string(gui_shell_x, gui_shell_y, "ls: No such file or directory", 0x0C);
+            gui_shell_y += 10;
+        } else if (dir->type != FS_TYPE_DIRECTORY) {
+            vga_draw_string(gui_shell_x, gui_shell_y, dir->name, 0x0F);
+            gui_shell_y += 10;
+        } else {
+            for (int i = 0; i < MAX_DIR_ENTRIES; i++) {
+                if (dir->children[i] != NULL) {
+                    uint8_t color = (dir->children[i]->type == FS_TYPE_DIRECTORY) ? 0x09 : 0x0F;
+                    vga_draw_string(gui_shell_x, gui_shell_y, dir->children[i]->name, color);
+                    gui_shell_y += 10;
+                    gui_shell_check_scroll(left_w, header_h, content_h);
+                }
+            }
+        }
+    } else if (strcmp(argv[0], "cd") == 0) {
+        if (argc < 2) {
+            fs_set_current(fs_root());
+            update_prompt();
+        } else {
+            fs_entry_t* dir = fs_resolve_path(argv[1]);
+            if (dir == NULL) {
+                vga_draw_string(gui_shell_x, gui_shell_y, "cd: No such file or directory", 0x0C);
+                gui_shell_y += 10;
+            } else if (dir->type != FS_TYPE_DIRECTORY) {
+                vga_draw_string(gui_shell_x, gui_shell_y, "cd: Not a directory", 0x0C);
+                gui_shell_y += 10;
+            } else {
+                fs_set_current(dir);
+                update_prompt();
+            }
+        }
+    } else if (strcmp(argv[0], "mkdir") == 0) {
+        if (argc < 2) {
+            vga_draw_string(gui_shell_x, gui_shell_y, "mkdir: missing operand", 0x0C);
+            gui_shell_y += 10;
+        } else {
+            for (int i = 1; i < argc; i++) {
+                fs_entry_t* result = fs_create_dir(argv[i]);
+                if (result == NULL) {
+                    int err = fs_get_last_error();
+                    vga_draw_string(gui_shell_x, gui_shell_y, "mkdir: Cannot create '", 0x0C);
+                    gui_shell_y += 10;
+                    gui_shell_check_scroll(left_w, header_h, content_h);
+                }
+            }
+        }
+    } else if (strcmp(argv[0], "touch") == 0) {
+        if (argc < 2) {
+            vga_draw_string(gui_shell_x, gui_shell_y, "touch: missing operand", 0x0C);
+            gui_shell_y += 10;
+        } else {
+            for (int i = 1; i < argc; i++) {
+                fs_entry_t* result = fs_create_file(argv[i]);
+                if (result == NULL) {
+                    int err = fs_get_last_error();
+                    vga_draw_string(gui_shell_x, gui_shell_y, "touch: Cannot create '", 0x0C);
+                    gui_shell_y += 10;
+                    gui_shell_check_scroll(left_w, header_h, content_h);
+                }
+            }
+        }
+    } else {
+        vga_draw_string(gui_shell_x, gui_shell_y, argv[0], 0x0C);
+        int len = strlen(argv[0]) * 6;
+        vga_draw_string(gui_shell_x + len, gui_shell_y, " not found", 0x0C);
+        gui_shell_y += 10;
+    }
+
+    gui_shell_check_scroll(left_w, header_h, content_h);
+
+    gui_shell_len = 0;
+    gui_shell_buf[0] = '\0';
+    gui_shell_draw_prompt();
+    gui_shell_input_x = gui_shell_x + 12;
+}
+
+static void gui_draw_content(int left_w, int header_h, int content_h, int active_idx) {
+    int cx = left_w + 4;
+    int cy = header_h + 4;
+
+    /* clear content area (inside border) */
+    vga_fill_rect(left_w + 1, header_h + 1, GFX_WIDTH - left_w - 2, content_h - 2, 0x00);
+
+    switch (active_idx) {
+        case 0: /* Shell */
+            vga_draw_string(cx, cy, "Shell Terminal", 0x0E);
+            gui_shell_init(left_w, header_h);
+            break;
+        case 1: /* Files */
+            vga_draw_string(cx, cy, "File Manager", 0x0E);
+            vga_draw_string(cx, cy + 10, "Browse and", 0x0F);
+            vga_draw_string(cx, cy + 20, "manage files.", 0x0F);
+            break;
+        case 2: /* Edit */
+            vga_draw_string(cx, cy, "Text Editor", 0x0E);
+            vga_draw_string(cx, cy + 10, "Edit text files", 0x0F);
+            vga_draw_string(cx, cy + 20, "in memory.", 0x0F);
+            break;
+        case 3: /* Viewer */
+            vga_draw_string(cx, cy, "Image Viewer", 0x0E);
+            vga_draw_string(cx, cy + 10, "View images in", 0x0F);
+            vga_draw_string(cx, cy + 20, "320x200 mode.", 0x0F);
+            break;
+        case 4: /* CATs */
+            vga_draw_string(cx, cy, "CAT Viewer", 0x0E);
+            vga_draw_string(cx, cy + 10, "=^._.^=", 0x0F);
+            vga_draw_string(cx, cy + 20, "Meow!", 0x0F);
+            break;
+    }
+}
+
 static int cmd_gui(int argc, char** argv) {
     vga_puts("Launching desktop...\n");
 
     vga_set_mode_13h();
 
-    vga_fill_rect(0, 0, GFX_WIDTH, GFX_HEIGHT, 0x03);
+    int header_h = 10;
+    int footer_h = 10;
+    int left_w = 100;
+    int content_h = GFX_HEIGHT - header_h - footer_h;
 
-    int taskbar_h = 20;
-    int taskbar_y = GFX_HEIGHT - taskbar_h;
-    vga_fill_rect(0, taskbar_y, GFX_WIDTH, taskbar_h, 0x07);
+#define KEY_UP    0x80
+#define KEY_DOWN  0x81
+#define KEY_LEFT  0x82
+#define KEY_RIGHT 0x83
 
-    vga_fill_rect(2, taskbar_y + 2, 40, taskbar_h - 4, 0x07);
-    vga_fill_rect(2, taskbar_y + 2, 40, 1, 0x0F);
-    vga_fill_rect(2, taskbar_y + 2, 1, taskbar_h - 4, 0x0F);
-    vga_fill_rect(2, taskbar_y + taskbar_h - 3, 40, 1, 0x08);
-    vga_fill_rect(41, taskbar_y + 2, 1, taskbar_h - 4, 0x08);
+    /* menu state */
+    const char* menu_items[] = {"Shell", "Files", "Edit", "Viewer", "CATs"};
+    int menu_count = 5;
+    int selected_idx = 0;
+    int active_idx = 0;
+    int menu_x = 4;
+    int menu_start_y = header_h + 14;
+    int menu_spacing = 10;
+
+    /* clear screen */
+    vga_fill_rect(0, 0, GFX_WIDTH, GFX_HEIGHT, 0x01);
+
+    /* top header bar */
+    vga_fill_rect(0, 0, GFX_WIDTH, header_h, 0x01);
+    vga_draw_rect(0, 0, GFX_WIDTH, header_h, 0x0E);
+    vga_draw_string(4, 2, "Kil0yOS v1.2.0", 0x0F);
+
+    /* left panel */
+    vga_fill_rect(0, header_h, left_w, content_h, 0x00);
+    vga_draw_rect(0, header_h, left_w, content_h, 0x0E);
+    vga_draw_string(menu_x, header_h + 4, "Menu", 0x0E);
+
+    /* draw menu items */
+    for (int i = 0; i < menu_count; i++) {
+        uint8_t color = (i == selected_idx) ? 0x0E : 0x0F;
+        vga_draw_string(menu_x, menu_start_y + i * menu_spacing, menu_items[i], color);
+    }
+
+    /* right content panel */
+    vga_fill_rect(left_w, header_h, GFX_WIDTH - left_w, content_h, 0x00);
+    vga_draw_rect(left_w, header_h, GFX_WIDTH - left_w, content_h, 0x0E);
+    gui_draw_content(left_w, header_h, content_h, active_idx);
+
+    /* bottom footer bar */
+    vga_fill_rect(0, GFX_HEIGHT - footer_h, GFX_WIDTH, footer_h, 0x01);
+    vga_draw_rect(0, GFX_HEIGHT - footer_h, GFX_WIDTH, footer_h, 0x0E);
+    vga_draw_string(4, GFX_HEIGHT - footer_h + 2, "Press 'q' to return to text mode", 0x0F);
 
     mouse_state_t prev = { .x = -1, .y = -1, .buttons = 0 };
 
     while (1) {
         if (keyboard_has_input()) {
-            char c = keyboard_getc();
+            unsigned char c = (unsigned char)keyboard_getc();
             if (c == 'q') break;
+
+            if (c == KEY_UP || c == KEY_DOWN) {
+                int old_idx = selected_idx;
+
+                if (c == KEY_UP && selected_idx > 0) {
+                    selected_idx--;
+                } else if (c == KEY_DOWN && selected_idx < menu_count - 1) {
+                    selected_idx++;
+                }
+
+                if (old_idx != selected_idx) {
+                    /* erase old item */
+                    vga_fill_rect(menu_x, menu_start_y + old_idx * menu_spacing,
+                                  left_w - 8, 8, 0x00);
+                    vga_draw_string(menu_x, menu_start_y + old_idx * menu_spacing,
+                                    menu_items[old_idx], 0x0F);
+
+                    /* draw new selected item */
+                    vga_fill_rect(menu_x, menu_start_y + selected_idx * menu_spacing,
+                                  left_w - 8, 8, 0x00);
+                    vga_draw_string(menu_x, menu_start_y + selected_idx * menu_spacing,
+                                    menu_items[selected_idx], 0x0E);
+                }
+            }
+
+            if (c == '\n') {
+                if (selected_idx != active_idx) {
+                    active_idx = selected_idx;
+                    gui_draw_content(left_w, header_h, content_h, active_idx);
+                } else if (active_idx == 0) {
+                    gui_shell_execute(left_w, header_h, content_h);
+                }
+            }
+
+            /* shell input handling */
+            if (active_idx == 0) {
+                if (c >= 32 && c <= 126 && gui_shell_len < GUI_SHELL_BUF_SIZE - 1) {
+                    gui_shell_buf[gui_shell_len++] = c;
+                    vga_draw_char(gui_shell_input_x, gui_shell_y, c, 0x0F);
+                    gui_shell_input_x += 6;
+                } else if (c == '\b' && gui_shell_len > 0) {
+                    gui_shell_len--;
+                    gui_shell_input_x -= 6;
+                    vga_fill_rect(gui_shell_input_x, gui_shell_y, 6, 8, 0x00);
+                }
+            }
         }
 
         mouse_state_t state;
@@ -777,7 +1059,7 @@ static int execute_command(char* cmd) {
     }
     
     vga_puts(argv[0]);
-    vga_puts(": command not found\n");
+    vga_puts(" not found\n");
     return 1;
 }
 

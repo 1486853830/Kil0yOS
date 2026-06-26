@@ -9,6 +9,7 @@
 #include "core/interrupts.h"
 #include "drivers/power.h"
 #include "drivers/pci.h"
+#include "drivers/rtc.h"
 #include "fs/edit.h"
 #include "net/net.h"
 #include "net/dhcp.h"
@@ -31,6 +32,8 @@ static int cmd_cat(int argc, char** argv);
 static int cmd_whoami(int argc, char** argv);
 static int cmd_version(int argc, char** argv);
 static int cmd_edit(int argc, char** argv);
+static int cmd_date(int argc, char** argv);
+static int cmd_time(int argc, char** argv);
 static int cmd_net(int argc, char** argv);
 static int cmd_ping(int argc, char** argv);
 static int cmd_gfx(int argc, char** argv);
@@ -53,6 +56,8 @@ static shell_command_t commands[] = {
     {"ping", "Send ICMP echo requests", cmd_ping},
     {"gfx", "Graphical display test", cmd_gfx},
     {"gui", "Launch desktop GUI", cmd_gui},
+    {"date", "Show current date", cmd_date},
+    {"time", "Show current time", cmd_time},
     {"help", "Show help information", cmd_help},
     {"shutdown", "Shut down the system", cmd_shutdown},
     {NULL, NULL, NULL}
@@ -397,6 +402,51 @@ static int cmd_whoami(int argc, char** argv) {
 static int cmd_version(int argc, char** argv) {
     vga_puts("Kil0yOS v1.2.0\n");
     vga_puts("A simple 32-bit x86 operating system\n");
+    return 0;
+}
+
+static int cmd_date(int argc, char** argv) {
+    rtc_time_t t;
+    if (rtc_read(&t) != 0) {
+        vga_puts("Failed to read RTC\n");
+        return 1;
+    }
+    char buf[32];
+    vga_puts("Current date: ");
+    itoa(t.year, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts("-");
+    if (t.month < 10) vga_puts("0");
+    itoa(t.month, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts("-");
+    if (t.day < 10) vga_puts("0");
+    itoa(t.day, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts("\n");
+    return 0;
+}
+
+static int cmd_time(int argc, char** argv) {
+    rtc_time_t t;
+    if (rtc_read(&t) != 0) {
+        vga_puts("Failed to read RTC\n");
+        return 1;
+    }
+    char buf[32];
+    vga_puts("Current time: ");
+    if (t.hour < 10) vga_puts("0");
+    itoa(t.hour, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts(":");
+    if (t.minute < 10) vga_puts("0");
+    itoa(t.minute, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts(":");
+    if (t.second < 10) vga_puts("0");
+    itoa(t.second, buf, 10, sizeof(buf));
+    vga_puts(buf);
+    vga_puts("\n");
     return 0;
 }
 
@@ -768,16 +818,68 @@ static void gui_shell_execute(int left_w, int header_h, int content_h) {
         vga_draw_string(gui_shell_x, gui_shell_y, " mkdir touch pwd", 0x0F);
         gui_shell_y += 10;
         gui_shell_check_scroll(left_w, header_h, content_h);
-        vga_draw_string(gui_shell_x, gui_shell_y, " clear version", 0x0F);
+        vga_draw_string(gui_shell_x, gui_shell_y, " date time clear", 0x0F);
         gui_shell_y += 10;
         gui_shell_check_scroll(left_w, header_h, content_h);
-        vga_draw_string(gui_shell_x, gui_shell_y, " whoami shutdown", 0x0F);
+        vga_draw_string(gui_shell_x, gui_shell_y, " version whoami", 0x0F);
+        gui_shell_y += 10;
+        gui_shell_check_scroll(left_w, header_h, content_h);
+        vga_draw_string(gui_shell_x, gui_shell_y, " shutdown", 0x0F);
         gui_shell_y += 10;
     } else if (strcmp(argv[0], "clear") == 0) {
         vga_fill_rect(left_w + 1, header_h + 1, GFX_WIDTH - left_w - 2, content_h - 2, 0x00);
         gui_shell_y = header_h + 14;
     } else if (strcmp(argv[0], "version") == 0) {
         vga_draw_string(gui_shell_x, gui_shell_y, "Kil0yOS v1.2.0", 0x0F);
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "date") == 0) {
+        rtc_time_t t;
+        if (rtc_read(&t) != 0) {
+            vga_draw_string(gui_shell_x, gui_shell_y, "Failed to read RTC", 0x0C);
+        } else {
+            char buf[32];
+            itoa(t.year, buf, 10, sizeof(buf));
+            vga_draw_string(gui_shell_x, gui_shell_y, buf, 0x0F);
+            vga_draw_string(gui_shell_x + strlen(buf) * 6, gui_shell_y, "-", 0x0F);
+            int x = gui_shell_x + (strlen(buf) + 1) * 6;
+            if (t.month < 10) {
+                vga_draw_string(x, gui_shell_y, "0", 0x0F); x += 6;
+            }
+            itoa(t.month, buf, 10, sizeof(buf));
+            vga_draw_string(x, gui_shell_y, buf, 0x0F); x += strlen(buf) * 6;
+            vga_draw_string(x, gui_shell_y, "-", 0x0F); x += 6;
+            if (t.day < 10) {
+                vga_draw_string(x, gui_shell_y, "0", 0x0F); x += 6;
+            }
+            itoa(t.day, buf, 10, sizeof(buf));
+            vga_draw_string(x, gui_shell_y, buf, 0x0F);
+        }
+        gui_shell_y += 10;
+    } else if (strcmp(argv[0], "time") == 0) {
+        rtc_time_t t;
+        if (rtc_read(&t) != 0) {
+            vga_draw_string(gui_shell_x, gui_shell_y, "Failed to read RTC", 0x0C);
+        } else {
+            char buf[32];
+            int x = gui_shell_x;
+            if (t.hour < 10) {
+                vga_draw_string(x, gui_shell_y, "0", 0x0F); x += 6;
+            }
+            itoa(t.hour, buf, 10, sizeof(buf));
+            vga_draw_string(x, gui_shell_y, buf, 0x0F); x += strlen(buf) * 6;
+            vga_draw_string(x, gui_shell_y, ":", 0x0F); x += 6;
+            if (t.minute < 10) {
+                vga_draw_string(x, gui_shell_y, "0", 0x0F); x += 6;
+            }
+            itoa(t.minute, buf, 10, sizeof(buf));
+            vga_draw_string(x, gui_shell_y, buf, 0x0F); x += strlen(buf) * 6;
+            vga_draw_string(x, gui_shell_y, ":", 0x0F); x += 6;
+            if (t.second < 10) {
+                vga_draw_string(x, gui_shell_y, "0", 0x0F); x += 6;
+            }
+            itoa(t.second, buf, 10, sizeof(buf));
+            vga_draw_string(x, gui_shell_y, buf, 0x0F);
+        }
         gui_shell_y += 10;
     } else if (strcmp(argv[0], "whoami") == 0) {
         vga_draw_string(gui_shell_x, gui_shell_y, "user", 0x0F);
@@ -838,7 +940,6 @@ static void gui_shell_execute(int left_w, int header_h, int content_h) {
             for (int i = 1; i < argc; i++) {
                 fs_entry_t* result = fs_create_dir(argv[i]);
                 if (result == NULL) {
-                    int err = fs_get_last_error();
                     vga_draw_string(gui_shell_x, gui_shell_y, "mkdir: Cannot create '", 0x0C);
                     gui_shell_y += 10;
                     gui_shell_check_scroll(left_w, header_h, content_h);
@@ -853,7 +954,6 @@ static void gui_shell_execute(int left_w, int header_h, int content_h) {
             for (int i = 1; i < argc; i++) {
                 fs_entry_t* result = fs_create_file(argv[i]);
                 if (result == NULL) {
-                    int err = fs_get_last_error();
                     vga_draw_string(gui_shell_x, gui_shell_y, "touch: Cannot create '", 0x0C);
                     gui_shell_y += 10;
                     gui_shell_check_scroll(left_w, header_h, content_h);

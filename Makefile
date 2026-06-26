@@ -28,7 +28,8 @@ DRIVERS_SRCS = $(SRCDIR)/kernel/drivers/vga.c \
                $(SRCDIR)/kernel/drivers/disk.c \
                $(SRCDIR)/kernel/drivers/device.c \
                $(SRCDIR)/kernel/drivers/power.c \
-               $(SRCDIR)/kernel/drivers/pci.c
+               $(SRCDIR)/kernel/drivers/pci.c \
+               $(SRCDIR)/kernel/drivers/rtc.c
 
 # --- Network ---
 NET_SRCS = $(SRCDIR)/kernel/net/net.c \

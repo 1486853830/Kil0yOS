@@ -10,7 +10,7 @@ void scheduler_init() {
     current_task_idx = 0;
 
     tasks[0].status = TASK_READY;
-    tasks[0].esp = 0;  // Captured on first context switch
+    tasks[0].rsp = 0;
     strcpy(tasks[0].name, "kernel_main");
 
     for (int i = 1; i < MAX_TASKS; i++) {
@@ -20,52 +20,51 @@ void scheduler_init() {
 
 /*
  * Set up a synthetic interrupt frame on the new task's stack.
- * When irq_common_stub pops this frame and irets, execution
+ * When irq_common_stub pops this frame and iretq, execution
  * starts at 'entry'.
  *
- * Stack layout (low → high address):
- *   [esp]     GS, FS, ES, DS          (pop gs/fs/es/ds)
- *            EDI, ESI, EBP, ESP,      (popa)
- *            EBX, EDX, ECX, EAX
- *            error_code                (add esp, 8)
- *            interrupt_number
- *            EIP                       (iret)
- *            CS
- *            EFLAGS
+ * Stack layout (low -> high address, matching irq_common_stub):
+ *   [rsp]     rax, rbx, rcx, rdx, rsi, rdi, rbp
+ *             r8, r9, r10, r11, r12, r13, r14, r15
+ *             error_code
+ *             interrupt_number
+ *             rip                       (iretq)
+ *             cs
+ *             rflags
  */
 static void setup_task_stack(task_t* task, void (*entry)(void)) {
-    uint32_t* sp = (uint32_t*)(task->stack + TASK_STACK_SIZE);
+    uint64_t* sp = (uint64_t*)(task->stack + TASK_STACK_SIZE);
 
-    // Align
-    sp = (uint32_t*)((uint32_t)sp & ~3u);
+    // 16-byte align
+    sp = (uint64_t*)((uint64_t)sp & ~0xFull);
 
-    // Hardware frame – iret pops EIP, CS, EFLAGS
-    *--sp = (uint32_t)entry;        // EIP
+    // Hardware frame – iretq pops RIP, CS, RFLAGS
+    *--sp = 0x202;                  // RFLAGS (IF = 1)
     *--sp = 0x08;                   // CS – kernel code segment
-    *--sp = 0x202;                  // EFLAGS (IF = 1)
+    *--sp = (uint64_t)entry;        // RIP
 
     // Pushed by ISR/IRQ macro
-    *--sp = 32;                     // interrupt_number (IRQ0 → IDT32)
+    *--sp = 32;                     // interrupt_number (IRQ0 -> IDT 32)
     *--sp = 0;                      // error_code
 
-    // pusha values – popa order: EDI, ESI, EBP, ESP(ignored), EBX, EDX, ECX, EAX
-    *--sp = 0;  // EDI
-    *--sp = 0;  // ESI
-    *--sp = 0;  // EBP
-    *--sp = 0;  // ESP (original – unused)
-    *--sp = 0;  // EBX
-    *--sp = 0;  // ECX
-    *--sp = 0;  // EDX
-    *--sp = 0;  // EAX
+    // pusha values – pop order: r15, r14, ..., r8, rbp, rdi, rsi, rdx, rcx, rbx, rax
+    *--sp = 0;  // r15
+    *--sp = 0;  // r14
+    *--sp = 0;  // r13
+    *--sp = 0;  // r12
+    *--sp = 0;  // r11
+    *--sp = 0;  // r10
+    *--sp = 0;  // r9
+    *--sp = 0;  // r8
+    *--sp = 0;  // rbp
+    *--sp = 0;  // rdi
+    *--sp = 0;  // rsi
+    *--sp = 0;  // rdx
+    *--sp = 0;  // rcx
+    *--sp = 0;  // rbx
+    *--sp = 0;  // rax
 
-    // Segment registers – pop order: GS, FS, ES, DS
-    *--sp = 0x10;  // GS
-    *--sp = 0x10;  // FS
-    *--sp = 0x10;  // ES
-    *--sp = 0x10;  // DS
-
-    // When irq_handler / irq_common_stub return, ESP will point here.
-    task->esp = (uint32_t)sp;
+    task->rsp = (uint64_t)sp;
 }
 
 int task_create(void (*entry)(void), const char* name) {
@@ -88,24 +87,13 @@ int task_create(void (*entry)(void), const char* name) {
     return idx;
 }
 
-/*
- * Called from the timer (IRQ 0) handler inside irq_handler().
- * 'current_esp' points to the interrupt frame on the current
- * task's stack.
- *
- * Returns the ESP of the next task to run.  irq_common_stub
- * will switch to it via "mov esp, eax".
- */
-uint32_t scheduler_tick(uint32_t current_esp) {
-    // Save current task's stack pointer
-    tasks[current_task_idx].esp = current_esp;
+uint64_t scheduler_tick(uint64_t current_rsp) {
+    tasks[current_task_idx].rsp = current_rsp;
 
     if (task_count <= 1) {
-        // Only the kernel-main context – no switching
-        return tasks[current_task_idx].esp;
+        return tasks[current_task_idx].rsp;
     }
 
-    // Round-robin: find next READY task
     int next = current_task_idx;
     do {
         next = (next + 1) % MAX_TASKS;
@@ -114,13 +102,9 @@ uint32_t scheduler_tick(uint32_t current_esp) {
              tasks[next].status != TASK_RUNNING);
 
     current_task_idx = next;
-    return tasks[current_task_idx].esp;
+    return tasks[current_task_idx].rsp;
 }
 
-/*
- * Kill a task by ID.
- * Marks the task as DEAD and frees its resources.
- */
 int task_kill(int task_id) {
     if (task_id < 0 || task_id >= MAX_TASKS) return -1;
     if (tasks[task_id].status == TASK_DEAD) return -1;
@@ -131,17 +115,12 @@ int task_kill(int task_id) {
     return 0;
 }
 
-/*
- * Exit the current task.
- * Marks the current task as DEAD and triggers a context switch.
- */
 void task_exit(void) {
     if (current_task_idx >= 0 && current_task_idx < MAX_TASKS) {
         tasks[current_task_idx].status = TASK_DEAD;
         task_count--;
     }
 
-    /* Force context switch to next task */
-    __asm__ volatile("int $32"); /* Trigger timer interrupt */
+    __asm__ volatile("int $32");
     __builtin_unreachable();
 }

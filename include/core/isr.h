@@ -4,16 +4,20 @@
 #include "lib/types.h"
 
 typedef struct interrupt_frame {
-    uint32_t gs, fs, es, ds;
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
-    uint32_t interrupt_number;
-    uint32_t error_code;
-    uint32_t eip, cs, eflags, useresp, ss;
+    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp;
+    uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+    uint64_t interrupt_number;
+    uint64_t error_code;
+    uint64_t rip;
+    uint64_t cs;
+    uint64_t rflags;
+    uint64_t rsp;
+    uint64_t ss;
 } __attribute__((packed)) interrupt_frame_t;
 
 void isr_init();
-uint32_t isr_handler(interrupt_frame_t* frame);
-uint32_t irq_handler(interrupt_frame_t* frame);
+uint64_t isr_handler(interrupt_frame_t* frame);
+uint64_t irq_handler(interrupt_frame_t* frame);
 void register_irq_handler(uint8_t irq, void (*handler)(interrupt_frame_t*));
 
 extern void isr0();

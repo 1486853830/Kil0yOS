@@ -3,9 +3,9 @@ AS = nasm
 LD = ld
 QEMU = qemu-system-x86_64
 
-CFLAGS = -std=c11 -ffreestanding -O2 -Wall -Wextra -fno-stack-protector -m32
-ASFLAGS = -f elf32
-LDFLAGS = -T linker.ld -O2 -nostdlib -m elf_i386
+CFLAGS = -std=c11 -ffreestanding -O2 -Wall -Wextra -fno-stack-protector -m64 -mno-red-zone -fno-pie -mcmodel=large -mno-sse -mno-sse2 -mno-mmx -I$(INCDIR)
+ASFLAGS = -f elf64
+LDFLAGS = -T linker.ld -O2 -nostdlib -m elf_x86_64
 
 SRCDIR = src
 INCDIR = include
@@ -76,7 +76,7 @@ all: iso
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BOOT_OBJ): $(SRCDIR)/boot/boot.asm
 	@mkdir -p $(dir $@)
@@ -98,7 +98,7 @@ $(BUILDDIR)/kil0yos.iso: $(BUILDDIR)/kernel.bin
 iso: $(BUILDDIR)/kil0yos.iso
 
 run: $(BUILDDIR)/kil0yos.iso
-	$(QEMU) -cdrom $(BUILDDIR)/kil0yos.iso -drive file=disk.img,format=raw -m 512M -nographic -serial stdio
+	$(QEMU) -cdrom $(BUILDDIR)/kil0yos.iso -m 512M -nographic -serial stdio
 
 disk:
 	dd if=/dev/zero of=disk.img bs=512 count=4096

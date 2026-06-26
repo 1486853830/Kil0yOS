@@ -13,7 +13,7 @@ void register_irq_handler(uint8_t irq, void (*handler)(interrupt_frame_t*)) {
 }
 
 void isr_set_gate(int num, void (*handler)()) {
-    idt_set_gate(num, (uint32_t)handler, 0x08, 0x8E);
+    idt_set_gate(num, (uint64_t)handler, 0x08, 0x8E);
 }
 
 void isr_init() {
@@ -68,25 +68,23 @@ void isr_init() {
     isr_set_gate(47, irq15);
 }
 
-uint32_t isr_handler(interrupt_frame_t* frame) {
+uint64_t isr_handler(interrupt_frame_t* frame) {
     (void)frame;
-    return (uint32_t)frame;
+    return (uint64_t)frame;
 }
 
-uint32_t irq_handler(interrupt_frame_t* frame) {
+uint64_t irq_handler(interrupt_frame_t* frame) {
     uint8_t irq_num = frame->interrupt_number - IRQ0;
-    
+
     if (irq_handlers[irq_num] != 0) {
         irq_handlers[irq_num](frame);
     }
-    
-    // Timer (IRQ 0) -> invoke the round-robin scheduler
+
     if (irq_num == 0) {
         pic_send_eoi(0);
-        return scheduler_tick((uint32_t)frame);
+        return scheduler_tick((uint64_t)frame);
     }
 
-    /* Fallback EOI: ensure PIC never deadlocks if handler missed it */
     pic_send_eoi(irq_num);
-    return (uint32_t)frame;
+    return (uint64_t)frame;
 }

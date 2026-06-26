@@ -1,9 +1,7 @@
-bits 32
+bits 64
 
 global gdt_flush
 gdt_flush:
-    jmp 0x08:.flush
-.flush:
     mov ax, 0x10
     mov ds, ax
     mov es, ax
@@ -18,8 +16,8 @@ extern isr_handler
     global isr%1
     isr%1:
         cli
-        push byte 0
-        push byte %1
+        push qword 0
+        push qword %1
         jmp isr_common_stub
 %endmacro
 
@@ -27,7 +25,7 @@ extern isr_handler
     global isr%1
     isr%1:
         cli
-        push byte %1
+        push qword %1
         jmp isr_common_stub
 %endmacro
 
@@ -70,8 +68,8 @@ extern irq_handler
     global irq%1
     irq%1:
         cli
-        push byte 0
-        push byte %2
+        push qword 0
+        push qword %2
         jmp irq_common_stub
 %endmacro
 
@@ -93,55 +91,80 @@ IRQ 14, 46
 IRQ 15, 47
 
 isr_common_stub:
-    pusha
-    push ds
-    push es
-    push fs
-    push gs
-    
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    
-    mov eax, esp
-    push eax
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rdi, rsp
     call isr_handler
-    add esp, 4
-    mov esp, eax  ; allow context switch (unused for now)
-    
-    pop gs
-    pop fs
-    pop es
-    pop ds
-    popa
-    add esp, 8
-    iret
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+
+    add rsp, 16
+    iretq
 
 irq_common_stub:
-    pusha
-    push ds
-    push es
-    push fs
-    push gs
-    
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    
-    mov eax, esp
-    push eax
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+
+    mov rdi, rsp
     call irq_handler
-    add esp, 4     ; pop the argument
-    mov esp, eax   ; switch to (potentially new) task stack
-    
-    pop gs
-    pop fs
-    pop es
-    pop ds
-    popa
-    add esp, 8
-    iret
+    mov rsp, rax
+
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+
+    add rsp, 16
+    iretq

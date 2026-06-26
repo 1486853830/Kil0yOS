@@ -1,6 +1,40 @@
 # Changelog
  All notable changes to this project will be documented in this file.
  The format follows Keep a Changelog and this project adheres to Semantic Versioning.
+## [2.0.1] - 2026-06-26
+ This release completes the architecture migration from 32-bit to 64-bit x86-64, upgrading the bootloader to GRUB2 with Multiboot2 protocol and enabling long mode.
+## Added
+ ### 64-bit Architecture Support
+  - Full x86-64 long mode support with 4-level page tables (PML4 -> PDPT -> PD -> PT)
+  - Identity mapping for the first 4 GiB of physical memory
+  - 64-bit GDT and IDT structures with proper long-mode segment descriptors (L=1, D=0)
+  - 64-bit interrupt handling with explicit register push/pop and `iretq`
+  - System V AMD64 ABI compliant scheduler context switching
+ ### Bootloader Upgrade
+  - Migrated from 32-bit Multiboot1 to GRUB2 + Multiboot2 protocol
+  - Proper Multiboot2 header alignment (8-byte boundary) with entry address tag
+ ### Build System
+  - Updated compiler flags for 64-bit (`-m64`, `-mno-red-zone`, `-mcmodel=large`)
+  - NASM output format changed to `elf64`
+  - Linker script updated to `elf64-x86-64` architecture
+  - Disabled SSE/AVX generation (`-mno-sse -mno-sse2 -mno-mmx`) for kernel compatibility
+## Changed
+  - All pointer types (`size_t`, `ptrdiff_t`, `physaddr_t`, `virtaddr_t`) upgraded to 64-bit
+  - Interrupt frame structure expanded to 64-bit registers
+  - Task stack size increased from 16 KiB to 32 KiB
+  - Task context switched from `esp` to `rsp`
+## Fixed
+  - GDT code segment descriptors now correctly set L-bit (long mode) preventing double faults on interrupt entry
+  - Multiboot2 header size alignment causing GRUB `unsupported tag: 0x8` error
+  - IDT gate offset handling for 64-bit handler addresses
+## File Changes
+  - 15+ files modified across boot, core, mm, sched, net, and build system
+  - `src/boot/boot.asm`: complete rewrite for 64-bit Multiboot2 + long mode entry
+  - `src/kernel/core/gdt.c`: fixed 64-bit segment granularity flags
+  - `src/kernel/core/idt.c`, `isr.c`, `isr.asm`: 64-bit IDT/ISR overhaul
+  - `src/kernel/sched/scheduler.c`: 64-bit context switch implementation
+  - `Makefile`: 64-bit toolchain flags and `-mno-sse`
+  - `linker.ld`: 64-bit ELF output format
 ## [1.2.0] - 2026-06-25
  This release completely redesigns the GUI desktop into a TempleOS-style tiling interface with an interactive graphical shell.
 ## Added
